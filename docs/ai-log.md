@@ -401,6 +401,24 @@ after adding the minimal resolution and redirect behavior.
 **Validation:** `./mvnw -Dtest=RedirectControllerTest,LinkResolutionTest test`
 and `./mvnw verify` passed.
 
+### AI-017 · 2026-09-20 · Phase B · Click recording implementation
+
+**Task:** Implement T8: record redirect click metadata synchronously while
+keeping click persistence fail-open.
+**Intent given:** Reuse the existing `ClickEvent` persistence mapping, capture
+request referrer, user-agent, and remote address, and ensure repository
+failures are logged without changing the redirect response.
+**Output:** `ClickRecorder` service and redirect-controller integration with
+focused metadata and failure-path tests.
+**Disposition:** `adopted` — the recorder owns the fail-open boundary so the
+redirect controller remains responsible only for resolution and HTTP response
+construction.
+**TDD evidence:** RED was observed when the new tests could not compile because
+`ClickRecorder` was absent. GREEN passed after adding the recorder and wiring it
+into the redirect path.
+**Validation:** `./mvnw -Dtest=ClickRecorderTest,RedirectControllerTest,LinkResolutionTest,LinkRepositoryTest test`
+and `./mvnw verify` passed.
+
 ## Pending sign-offs
 
 High-impact items requiring explicit engineer review before merge:
