@@ -176,5 +176,10 @@ generation, and documentation. Every material use is logged in
 rejected — and technical rationale, including the rejections and one case where
 the recommendation was right but its reasoning was not.
 
+Independent implementation slices are reviewed by a local Copilot subagent
+that is intentionally kept outside the repository. It reviews only the supplied
+diff, never remediates its own findings, and holds remediation for engineer
+approval. The whole-project review remains a manual final gate.
+
 The engineer owns every decision in this repository. Nothing here was accepted
 on the basis that it passed a test.

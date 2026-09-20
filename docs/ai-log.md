@@ -282,6 +282,45 @@ security updates rather than weakening or removing the PR check.
 confirming that the dependency graph is active. The first workflow execution
 remains pending this change set being pushed.
 
+### AI-012 · 2026-09-20 · Tooling · Independent clean-code review agent
+
+**Task:** Adapt an existing Maestro code-review agent for Copilot CLI.
+**Intent given:** Preserve independent diff review, design and test-quality
+checks, report receipts, and incremental re-verification.
+**Output:** Personal local Copilot agent, intentionally stored outside the
+repository, using Claude Sonnet 5 with Copilot's read, search, edit, and execute
+tool aliases.
+**Disposition:** `edited`.
+**Rationale:** Maestro-specific runners, hooks, report paths, and external
+severity definitions do not apply to Copilot. The local version uses bounded
+Git diff commands, includes untracked files explicitly, defines its own severity
+contract, and preserves stable finding IDs and JSON receipts. Copilot
+frontmatter cannot restrict `edit` to one path or `execute` to an executable
+allowlist, so confinement is an explicit agent instruction rather than a hard
+hook boundary. Keeping the agent outside the repository prevents personal
+workflow configuration from becoming part of the public deliverable.
+**Validation:** The YAML frontmatter parses successfully and uses only official
+Copilot custom-agent fields and tool aliases.
+
+### AI-013 · 2026-09-20 · Tooling · Review orchestration policy
+
+**Task:** Make independent clean-code review automatic after implementation
+slices while retaining engineer control over remediation and final review.
+**Output:** Clone-local Copilot instructions, excluded from Git, that invoke the
+personal `clean-code-review` agent after meaningful, verified implementation
+slices; require explicit engineer approval before fixes; allow one incremental
+re-verification; and reserve the whole-project review for manual invocation
+before submission.
+**Disposition:** `adopted`.
+**Rationale:** Agent descriptions permit model invocation but do not guarantee a
+review at a lifecycle boundary. Clone-local instructions make the trigger and
+handoff explicit without publishing personal workflow configuration, allowing
+the reviewer to fix its own findings, or allowing the implementation agent to
+remediate without human approval.
+**Validation:** The policy defines trigger exclusions, required review context,
+task-specific report paths, blocking severity, re-verification limits, and the
+manual final-review boundary.
+
 ---
 
 ## Pending sign-offs
