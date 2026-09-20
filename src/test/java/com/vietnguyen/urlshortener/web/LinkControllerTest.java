@@ -32,6 +32,7 @@ class LinkControllerTest {
     mockMvc
         .perform(
             post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
                 .contentType("application/json")
                 .content("{\"destination\":\"https://example.com\"}"))
         .andExpect(status().isCreated())
@@ -46,6 +47,7 @@ class LinkControllerTest {
     mockMvc
         .perform(
             post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
                 .contentType("application/json")
                 .content("{\"destination\":\"javascript:alert(1)\"}"))
         .andExpect(status().isBadRequest())
@@ -56,7 +58,10 @@ class LinkControllerTest {
   void rejectsBlankDestinationWith400ProblemBody() throws Exception {
     mockMvc
         .perform(
-            post("/api/links").contentType("application/json").content("{\"destination\":\" \"}"))
+            post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
+                .contentType("application/json")
+                .content("{\"destination\":\" \"}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.title").value("Invalid request"));
   }
