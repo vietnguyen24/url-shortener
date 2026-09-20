@@ -41,7 +41,7 @@ judgment would have nothing to demonstrate.
 | S2 | Who may access analytics? | **Any holder of a valid API key.** No per-link ownership model in v1. | Ownership requires a user/account model, registration, and key lifecycle — days of work that demonstrate nothing the rubric asks for. Stated plainly as a limitation rather than hidden. | More than one tenant. Links gain `owner_id`, analytics queries filter on it, and key→owner resolution moves into the auth filter. |
 | S3 | Which destination schemes and hosts are permitted? | **`http` and `https` only.** Reject all other schemes. Reject private, loopback, link-local and cloud-metadata addresses. Cap URL length at 2048. | Scheme allowlisting is the load-bearing control: accepting `javascript:` or `data:` turns the redirect into a stored-XSS delivery vector. On the address blocking, precision matters — **the service never fetches destinations, so classic SSRF does not apply to it directly.** The real exposure is being used as a laundering hop to bypass *another* system's egress filter, plus the fact that any future preview/favicon feature would make it live. Cheap insurance, blocked at creation time. | A legitimate deep-link use case appeared (`myapp://`). Extend by **allowlist**, never by relaxing to a blocklist. |
 | S4 | What abuse protections are expected? | v1: URL validation, scheme allowlist, length cap. **Rate limiting deferred** with its design recorded in `03-architecture.md`. No malware/phishing reputation check. | Rate limiting is the more interesting design conversation (filter placement, keying, in-memory vs distributed, testability under a clock) but it touches little schema and competes directly with the brownfield scenario for time. Writing the design without building it captures the reasoning at a fraction of the cost. A reputation check means an external API dependency, a key, and a failure-mode policy. This local/reference deployment is not eligible for public exposure without those controls. | Any public deployment. Rate limiting becomes mandatory before exposure, and a Safe Browsing-style check before accepting user-submitted destinations at scale. |
-| S5 | Are there mandated org security standards or scanners? | No one to ask, so I imposed my own: **Spotless** (format), **Checkstyle** (style), **SpotBugs** (static analysis), **OWASP Dependency-Check** (known CVEs in dependencies). | An unnamed "security check" is not a quality gate. Named tools with a pass/fail in the build are. | The organisation named its own toolchain. These are all replaceable without touching application code. |
+| S5 | Are there mandated org security standards or scanners? | No one to ask, so I imposed my own: **Spotless** (format), **Checkstyle** (style), and **SpotBugs** (static analysis) in Maven; **Dependabot alerts and updates** plus GitHub dependency review for known vulnerable dependencies. | An unnamed "security check" is not a quality gate. The local gates are deterministic and fast; GitHub's hosted dependency intelligence avoids requiring an organization, a committed vulnerability database, or a personal NVD API key. Dependency review fails pull requests that introduce a high-severity vulnerability. | The project moved away from GitHub or an organization mandated its own software-composition-analysis platform. |
 
 ## Analytics and privacy
 
@@ -67,9 +67,9 @@ judgment would have nothing to demonstrate.
 
 | # | Decision | Rationale | Would revisit if |
 | --- | --- | --- | --- |
-| T1 | **Java 21 LTS**, not 25 | Both are LTS. 21 has the deeper pool of mature tooling, plugin support and published guidance, and nothing in this design needs anything newer. Choosing the older LTS is the lower-variance call when the budget has no room for toolchain debugging. | The project had a runway longer than three days, or needed a feature only present in a later release. |
-| T2 | **Spring Boot 3.x** (exact version pinned in `pom.xml` at bootstrap) | Least-surprise choice for a JVM service: Actuator, validation, test slices and OpenAPI tooling are all first-party or well-trodden. | — |
-| T3 | **Maven**, not Gradle | Spotless, SpotBugs, Checkstyle and OWASP Dependency-Check are all one plugin block each, and the declarative build is easier for a reviewer to audit than a Gradle script. Build speed is irrelevant at this size. | A multi-module build with real build logic. |
+| T1 | **Java 25 LTS**, selected through the repository `.java-version` and `jenv` | The project owner explicitly selected JDK 25. It is an LTS release installed in the target environment and supported by the selected Spring Boot release. Pinning the project-level `jenv` version makes local execution reproducible rather than dependent on the shell default. | The deployment platform did not support Java 25. |
+| T2 | **Spring Boot 4.1.1** | Current stable release published to Maven Central with Java 25 support. Initializr advertised `4.1.1.RELEASE`, but that coordinate was not published; the build uses the resolvable stable coordinate rather than adding a milestone or snapshot repository. | A compatibility issue appeared in a required library or deployment platform. |
+| T3 | **Maven**, not Gradle | Spotless, SpotBugs, and Checkstyle are declarative plugin blocks, and the build is easy for a reviewer to audit. Dependabot reads the same `pom.xml` for hosted vulnerability and update analysis. Build speed is irrelevant at this size. | A multi-module build with real build logic. |
 | T4 | **Spring Data JDBC**, not JPA | Explicit SQL and an explicit persistence boundary. JPA's lazy loading, dirty checking and transaction-boundary surprises are a debugging cost that only pays for itself on a rich object graph — this domain is two tables. Choosing the simpler tool is the point. | The domain grew an aggregate with deep associations and genuine identity-map needs. |
 | T5 | **PostgreSQL 16 + Flyway** | Versioned, reproducible, reviewable schema evolution — and the brownfield scenario depends on a real migration being a real artifact. | — |
 | T6 | **Testcontainers** against real PostgreSQL, with a single reusable container | Considered and **rejected** an H2 fallback for integration tests. H2 diverges from PostgreSQL on exactly the behaviour under test — unique-constraint violation semantics (P7's retry path), upsert, and PostgreSQL-specific migration DDL — so migration tests against H2 would be theatre. Docker is already a hard dependency because of Compose (R4), so Testcontainers adds no new environmental requirement, only startup latency, and a static container on a shared abstract base test class pays that once rather than per class. | Docker were unavailable in the target environment. Then the honest fallback is fewer integration tests, not the same tests against a different database. |
@@ -136,9 +136,10 @@ column ships first, the drop ships in a later, separate migration.
 - A column drop applied while running code still writes that column fails, or
   breaks the next insert. With Spring Data JDBC the entity maps columns
   explicitly, so the failure is immediate. Ordering is not a nicety.
-- In this project both steps land in one deploy, so the practical risk is low.
-  The policy is stated anyway because in a rolling deployment it is two
-  releases, and the discipline is the point.
+- The assignment history will preserve a release checkpoint between the
+  application change and `V4`. A clean installation may apply both migrations,
+  but an upgrade must deploy and verify the application change before making
+  `V4` available.
 
 **Applied to the three planned migrations:**
 
@@ -146,7 +147,7 @@ column ships first, the drop ships in a later, separate migration.
 | --- | --- | --- |
 | `V1` initial schema | Additive | Safe. Empty database |
 | `V2` add nullable `expires_at` (T15) | Additive | Safe. Nullable with no default, so existing rows are untouched and old code ignores it — backward compatibility proven by a test that seeds pre-migration rows and resolves them afterwards |
-| `V3` / `V4` privacy (T16) | **Destructive** | `V3` stops writing `client_ip` and backfills the reduced referrer/user-agent forms; `V4` drops `client_ip`. Split deliberately |
+| `V3` / `V4` privacy (T16) | **Destructive** | `V3` backfills reduced values; the accompanying application release stops writing `client_ip`; `V4` is committed for a subsequent release and drops the column only after the first release is verified |
 
 **On the irreversibility of `V4`:** dropping `client_ip` destroys the data with
 no recovery path. That is the correct outcome — the entire purpose of the change
@@ -154,6 +155,6 @@ is to stop holding it, and an "anonymise in place" alternative leaves the column
 available for a future developer to start populating again. The decision is to
 drop, knowingly, rather than to soften it into something reversible.
 
-**Would revisit if:** the service ran multi-instance with rolling deploys. The
-two steps then need to be two releases with a verified gap, not two migrations
-in one deploy.
+**Would revisit if:** deployment automation could not enforce the verified
+release checkpoint. In that case `V4` remains deferred rather than risking old
+instances writing a removed column.

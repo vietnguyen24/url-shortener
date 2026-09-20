@@ -4,10 +4,12 @@ A production-grade URL-shortening service delivered through engineer-led,
 AI-accelerated execution. The service is the artifact; the decisions,
 decomposition, validation, and traceability around it are the substance.
 
-> **Status: planning complete, implementation not started.**
-> Decisions, task graph and architecture are committed below. No application
-> code exists yet — the quick start describes the target, and this banner is
-> removed once `make demo` runs end to end. Per-task status is in
+> **Status: Phase A foundation implemented locally.**
+> The Java 25/Spring Boot application, PostgreSQL environment, initial schema,
+> short-code generator, quality gates, and CI workflow are implemented locally.
+> `mvn verify` passes; the CI run remains pending until this change set is
+> committed and pushed. The feature API has not started, so `make demo` remains
+> a target until T14. Per-task status is in
 > [`docs/02-tasks.md`](docs/02-tasks.md).
 
 ## Engineering standard
@@ -28,7 +30,8 @@ for a reviewer to find in the history.
 
 ## Quick start
 
-Requires Docker and JDK 21.
+Requires Docker and JDK 25. This repository includes `.java-version`; with
+`jenv`, select it using `jenv local 25`.
 
 ```bash
 make demo
@@ -82,7 +85,7 @@ Assignment §5, mapped to paths:
 
 ## Design in one page
 
-Modular monolith — Java 21, Spring Boot 3.x, PostgreSQL 16, Flyway, Spring Data
+Modular monolith — Java 25, Spring Boot 4.1.1, PostgreSQL 16, Flyway, Spring Data
 JDBC. Three layers with inward-pointing dependencies: `web → service →
 persistence`. No message broker, no cache, no second service; nothing in the
 requirements needs one.
@@ -125,9 +128,13 @@ PostgreSQL on exactly the behaviour under test — unique-constraint violation
 semantics and migration DDL — so migration tests against it would pass while
 proving nothing. Reasoning in [`docs/ai-log.md`](docs/ai-log.md) (AI-004).
 
-Quality gates in `mvn verify`: **Spotless**, **Checkstyle**, **SpotBugs**,
-**OWASP Dependency-Check**. All fail the build, and all run in CI on every push
-— a gate that only runs on the engineer's machine is not a gate.
+Quality gates in `mvn verify`: **Spotless**, **Checkstyle**, and **SpotBugs**.
+GitHub provides the dependency-security layer: **Dependabot alerts and weekly
+updates**, plus dependency review that rejects new high-severity vulnerabilities
+in pull requests. This avoids putting a rate-limited NVD database download in
+the inner development loop while keeping dependency risk visible and actionable.
+The repository dependency graph, Dependabot alerts, and security updates must
+remain enabled in GitHub settings.
 
 ## Trade-offs and limitations
 
@@ -163,8 +170,8 @@ is handed in.
 
 ## AI usage
 
-AI was used across analysis, design review, implementation, test generation and
-documentation. Every material use is logged in
+AI has been used across analysis, design review, Phase A implementation, test
+generation, and documentation. Every material use is logged in
 [`docs/ai-log.md`](docs/ai-log.md) with disposition — adopted, edited or
 rejected — and technical rationale, including the rejections and one case where
 the recommendation was right but its reasoning was not.

@@ -36,7 +36,7 @@ architecture theatre.
 Three layers, dependencies pointing inward only. `web` knows about `service`;
 `service` knows about `persistence`; nothing points back out. `ShortCodeGenerator`
 is an interface specifically so the collision-retry path can be tested by stubbing
-it to return a known-duplicate code (T5) — the seam exists for testability, not
+it to return a known-duplicate code (T6) — the seam exists for testability, not
 for anticipated variation.
 
 ## Data model
@@ -125,11 +125,12 @@ using a column ships before the migration that removes it. Flyway Community has
 no undo, so forward-only is the operative policy whether or not it is written
 down, and a rollback plan resting on an unavailable feature is worse than none.
 
-`V1` and `V2` are additive and safe. The privacy change is deliberately split:
-`V3` stops writing `client_ip` and backfills the reduced referrer and user-agent
-forms; `V4` drops the column. Applying the drop while code still writes the
-column breaks the next insert — with Spring Data JDBC's explicit column mapping,
-immediately.
+`V1` and `V2` are additive and safe. The privacy change is deliberately split
+across release checkpoints: `V3` backfills the reduced referrer and user-agent
+forms, its accompanying application release stops writing `client_ip`, and
+`V4` is added only after that release is verified. Applying the drop while old
+code still writes the column breaks the next insert — with Spring Data JDBC's
+explicit column mapping, immediately.
 
 Full reasoning and the irreversibility argument for `V4` are in M1 of
 [`01-decisions.md`](01-decisions.md).
@@ -146,8 +147,8 @@ checklist.
 | **Private / metadata address destinations** | Blocked at creation. **Precisely:** the service never fetches destinations, so classic SSRF does not apply to it. The exposure is (a) being used as a hop to bypass another system's egress filtering, and (b) any future preview/favicon feature turning this live. Blocking is cheap; unblocking later is a decision, unblocking by accident is an incident. |
 | **Code enumerability** | Random 7-char base62, not sequential. Sequential codes would expose every destination in the system plus creation order and volume. See P7. |
 | **PII in analytics** | The baseline carries known debt (raw IP, full referrer); discharged by `V3`/`V4` before delivery (A2, M1). A full referrer URL can itself be sensitive — it reveals the page the user came from. |
-| **Secrets** | None in the repository. API key via environment variable with an obviously-fake default. |
-| **Dependency supply chain** | OWASP Dependency-Check in the build, plus a standing rule that AI-suggested dependencies are verified to exist and be maintained before being added — see `ai-log.md`. |
+| **Secrets** | None in the repository. A fake key may exist only in the development profile; non-development startup fails unless the API key is supplied through the environment. |
+| **Dependency supply chain** | Dependabot alerts and weekly updates, with GitHub dependency review rejecting newly introduced high-severity vulnerabilities. AI-suggested dependencies are still verified to exist and be maintained before being added — see `ai-log.md`. |
 | **Error leakage** | RFC 7807 problem bodies only; no stack traces, no SQL, no internal identifiers in responses. |
 
 ## Considered and deferred

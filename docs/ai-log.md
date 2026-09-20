@@ -24,8 +24,8 @@ no entries where the engineer was wrong. Three rules keep this one honest:
 Binding for the duration of this project:
 
 - **No secrets, credentials or API keys in prompts.** This repository contains
-  none; the dev API key is supplied via environment variable with an
-  obviously-fake default.
+  none; a fake key may be used only by the development profile, and
+  non-development startup requires an environment-supplied value.
 - **No proprietary or employer-owned code in prompts.** All code here is written
   for this assignment.
 - **Every AI-suggested dependency is verified before it is added:** that the
@@ -33,7 +33,8 @@ Binding for the duration of this project:
   and that it has no unresolved critical CVEs. AI-hallucinated package names are
   a live supply-chain attack vector — an attacker who registers a plausible
   hallucinated name gets code execution in any build that trusts the suggestion.
-  OWASP Dependency-Check (T2) is the automated backstop, not the primary control.
+  Dependabot alerts and pull-request dependency review are the automated
+  backstop, not the primary control.
 - **Security-sensitive logic is read line by line, never accepted on test-pass
   alone.** Specifically: URL validation, the API-key filter, and the
   collision-retry path. A passing test proves the cases I thought of.
@@ -197,6 +198,89 @@ Corrected.
 T10, leaving ~2.75 h of slack. Raising a quality bar without re-costing the
 plan is the same judgment failure `02-tasks.md` exists to prevent.
 **Sign-off:** Engineer — high-impact (migration safety, data handling).
+
+### AI-008 · 2026-09-19 · Phase A · Foundation implementation
+
+**Task:** Bootstrap the project, initial PostgreSQL schema, short-code generator,
+quality gates, and CI workflow.
+**Intent given:** Start the first execution phase, use `jenv`, and select JDK 25.
+**Output:** Java 25/Spring Boot 4.1.1 Maven service, PostgreSQL 16 Compose
+environment, Flyway V1 migration, base62 `SecureRandom` generator, build gates,
+and GitHub Actions workflow.
+**Disposition:** `edited` — two generated/default choices were rejected after
+execution evidence.
+**Rationale:** Spring Initializr advertised parent version `4.1.1.RELEASE`, but
+that artifact does not exist in Maven Central. The published stable coordinate
+is `4.1.1`, so the suffix was removed instead of adding a non-central repository.
+The generated Testcontainers image used `postgres:latest`; it was pinned to
+`postgres:16-alpine` to match the documented database contract. Local port 5432
+was already owned by another PostgreSQL process, so Compose and the application
+default were moved together to 5433 rather than stopping unrelated work.
+
+**TDD evidence:**
+
+- T3 RED: `SchemaMigrationTest` ran against PostgreSQL 16 and found neither
+  required table. GREEN: V1 created both tables, the short-code unique index,
+  and the analytics index; the same test passed.
+- T4 RED: `SecureRandomShortCodeGeneratorTest` expected seven base62 characters
+  and received the compiling stub's empty string. GREEN: the minimal generator
+  implementation passed 1,000 contract checks.
+
+**Validation:** Application startup applied V1 to the Compose database and
+readiness returned `{"status":"UP"}` on an isolated port. Spotless, Checkstyle,
+and SpotBugs passed.
+
+### AI-009 · 2026-09-20 · Phase A · Dependency security gate
+
+**Task:** Replace the local OWASP dependency scan with a security gate suitable
+for a personal MVP repository.
+**Intent given:** Use GitHub Dependabot because there is no organization or NVD
+API key.
+**Output:** Weekly Maven and GitHub Actions update checks, Dependabot alerts, and
+pull-request dependency review failing on newly introduced high-severity
+vulnerabilities.
+**Disposition:** `edited` — the original plan bound OWASP Dependency-Check to
+every `mvn verify`.
+**Rationale:** Dependency-Check 13.0.0 failed without an NVD API key. Version
+12.2.2 supported anonymous access but its first synchronization had 395,560 CVE
+records and stalled after 10,000 under NVD rate limits. That made the local
+feedback loop and a 20-minute CI job operationally unreliable. Dependabot uses
+GitHub-hosted vulnerability data, requires no organization or personal secret,
+and separates dependency intelligence from deterministic local compilation and
+analysis.
+**Validation:** Maven verification remains the local and CI code-quality gate;
+the Dependabot configuration covers Maven and GitHub Actions, and the dependency
+review workflow is limited to pull requests. The resulting `mvn verify` completed
+successfully with all three tests and all local quality gates passing.
+
+### AI-010 · 2026-09-20 · Phase A · Checkstyle gate review
+
+**Task:** Review the complete Phase A change set for high-confidence build and
+configuration defects.
+**Output:** Checkstyle loaded Google's rules but treated their warning severity
+as below Maven's default error-only violation threshold, so the build printed
+warnings and still reported zero violations.
+**Disposition:** `adopted`.
+**Rationale:** A quality gate that reports findings without affecting the build
+does not meet T2's acceptance criterion. The plugin now sets
+`violationSeverity=warning`; required public API documentation was added and the
+redundant generated test launcher was removed.
+**Validation:** `mvn verify` completed with zero Checkstyle findings after the
+warning threshold became build-enforcing.
+
+### AI-011 · 2026-09-20 · Phase A · GitHub dependency-security readiness
+
+**Task:** Re-review the final Phase A configuration.
+**Output:** The dependency-review workflow was valid, but GitHub's dependency
+graph and Dependabot security features were disabled, so the hosted gate could
+not run.
+**Disposition:** `adopted`.
+**Rationale:** Committing a workflow that is guaranteed to fail is not a quality
+gate. The repository owner enabled the dependency graph, Dependabot alerts, and
+security updates rather than weakening or removing the PR check.
+**Validation:** GitHub's repository SBOM endpoint now returns the project SBOM,
+confirming that the dependency graph is active. The first workflow execution
+remains pending this change set being pushed.
 
 ---
 
