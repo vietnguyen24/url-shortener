@@ -472,6 +472,10 @@ and a web-layer `LinkStatsResponse` now keeps the JSON contract separate from
 the service record. The focused tests and full Maven verification gate passed
 after both changes; the findings were directly coupled to T9's endpoint
 behavior and were accepted for fixing under autopilot.
+Re-verification also identified CR-03 in the slice test: a test-local advice
+could mask the shared problem response. That advice was removed; the test now
+imports the real global handler and asserts the RFC 7807 content type, title,
+and status. The focused test and a final `./mvnw verify` passed afterward.
 
 ## Pending sign-offs
 
