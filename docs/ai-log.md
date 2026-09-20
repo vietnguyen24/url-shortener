@@ -353,6 +353,37 @@ is represented by `LinkStatus` with explicit JDBC converters. Focused tests and
 the full Maven verification gate passed after remediation; re-verification
 resolved CR-02 and the remaining CR-01 call site was then corrected.
 
+### AI-015 · 2026-09-20 · Phase B · Link creation implementation
+
+**Task:** Implement T6: link creation service and `POST /api/links` with
+collision retry, destination validation, scheme allowlist, private-address
+rejection, and a 2048-character length cap.
+**Intent given:** Follow TDD and prove collision retry through PostgreSQL rather
+than a mocked constraint alone.
+**Output:** `UrlValidator`, `LinkService`, `LinkController`, Spring bean wiring
+for the short-code generator, web/service tests, and a Testcontainers
+integration test that forces a real unique-constraint collision before a
+successful retry.
+**Disposition:** `edited` — Spring Boot 4's relocated `WebMvcTest` and
+`MockitoBean` packages were used after the initial test imports failed to
+compile; unresolved hosts are rejected rather than treated as public, and
+URL credentials are rejected to avoid accepting ambiguous destinations.
+**TDD evidence:** RED first showed the missing service, validator, and
+controller types. GREEN covered accepted/rejected URLs, collision retry,
+201 creation, and 400 problem responses. The integration test exercises the
+real PostgreSQL unique constraint and verifies the retry succeeds in a fresh
+repository transaction.
+**Validation:** `./mvnw -Dtest=UrlValidatorTest,LinkServiceTest,LinkServiceIntegrationTest,LinkControllerTest test`
+and `./mvnw verify` passed.
+
+**Review remediation:** The clean-code review's CR-01 through CR-05 findings
+were accepted for fixing because they were directly coupled to T6's validation
+and error contract. IPv6 unique-local addresses are now rejected, DNS
+resolution is bounded and injectable in tests, domain-specific validation and
+creation-failure exceptions prevent generic or persistence exceptions from
+being misclassified, and validation details are derived from binding errors.
+The full Maven verification gate passed after these changes.
+
 ## Pending sign-offs
 
 High-impact items requiring explicit engineer review before merge:

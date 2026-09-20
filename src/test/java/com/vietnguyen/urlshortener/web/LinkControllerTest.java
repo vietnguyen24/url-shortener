@@ -1,0 +1,63 @@
+package com.vietnguyen.urlshortener.web;
+
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.vietnguyen.urlshortener.persistence.Link;
+import com.vietnguyen.urlshortener.persistence.LinkStatus;
+import com.vietnguyen.urlshortener.service.InvalidDestinationException;
+import com.vietnguyen.urlshortener.service.LinkService;
+import java.time.Instant;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+@WebMvcTest(LinkController.class)
+class LinkControllerTest {
+
+  @Autowired private MockMvc mockMvc;
+
+  @MockitoBean private LinkService linkService;
+
+  @Test
+  void createsLinkAndReturns201() throws Exception {
+    when(linkService.create("https://example.com"))
+        .thenReturn(
+            new Link(1L, "abc1234", "https://example.com", LinkStatus.ACTIVE, Instant.now()));
+
+    mockMvc
+        .perform(
+            post("/api/links")
+                .contentType("application/json")
+                .content("{\"destination\":\"https://example.com\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.shortCode").isNotEmpty())
+        .andExpect(jsonPath("$.destination").value("https://example.com"));
+  }
+
+  @Test
+  void rejectsInvalidDestinationWith400ProblemBody() throws Exception {
+    when(linkService.create("javascript:alert(1)")).thenThrow(new InvalidDestinationException());
+
+    mockMvc
+        .perform(
+            post("/api/links")
+                .contentType("application/json")
+                .content("{\"destination\":\"javascript:alert(1)\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.title").value("Invalid destination"));
+  }
+
+  @Test
+  void rejectsBlankDestinationWith400ProblemBody() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/links").contentType("application/json").content("{\"destination\":\" \"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.title").value("Invalid request"));
+  }
+}
