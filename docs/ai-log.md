@@ -323,6 +323,36 @@ manual final-review boundary.
 
 ---
 
+### AI-014 · 2026-09-20 · Phase B · Persistence implementation
+
+**Task:** Implement T5: Spring Data JDBC entities and repositories with
+PostgreSQL integration coverage, including database-enforced short-code
+uniqueness.
+**Intent given:** Follow the task graph and prove repository behavior against
+the real PostgreSQL Testcontainer rather than H2 or mocked exceptions.
+**Output:** `Link` and `ClickEvent` mappings, repositories, PostgreSQL `INET`
+conversion support, and integration tests covering save/find, click persistence,
+and duplicate short-code rejection.
+**Disposition:** `edited` — the initial `InetAddress` mapping was rejected after
+SpotBugs reported exposed mutable state and PostgreSQL could not infer its JDBC
+type. A typed `ClientIp` value plus explicit PostgreSQL `PGobject` conversion was
+used instead; a generic `String` converter was also rejected after it captured
+unrelated string columns.
+**TDD evidence:** RED was first observed as missing persistence types, then as
+the unimplemented mapping surface. GREEN passed the focused Testcontainers
+tests. Refactoring addressed SpotBugs, PostgreSQL `INET` binding, formatting,
+and retained Spring Data's built-in conversions.
+**Validation:** `./mvnw -Dtest=LinkRepositoryTest test` and `./mvnw verify`
+passed. The duplicate test asserts `DataIntegrityViolationException` from the
+real PostgreSQL unique constraint.
+
+**Review remediation:** The clean-code review's CR-01 and CR-02 findings were
+accepted for fixing. Both persistence-test timestamps are truncated to
+PostgreSQL's microsecond precision before equality assertions, and link status
+is represented by `LinkStatus` with explicit JDBC converters. Focused tests and
+the full Maven verification gate passed after remediation; re-verification
+resolved CR-02 and the remaining CR-01 call site was then corrected.
+
 ## Pending sign-offs
 
 High-impact items requiring explicit engineer review before merge:
