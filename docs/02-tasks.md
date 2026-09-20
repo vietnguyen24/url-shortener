@@ -34,6 +34,7 @@ the slack below both moved with it.
 | T3 | Complete | V1 migration applied to PostgreSQL 16 and verified by `SchemaMigrationTest` after an observed behavioral RED |
 | T4 | Complete | Base62 generator implemented through RED–GREEN; contract verified across 1,000 generated codes |
 | T5 | Complete | Spring Data JDBC mappings and repositories verified against PostgreSQL 16 Testcontainers; duplicate short codes are rejected by the database unique constraint |
+| T6 | Complete | Link creation service and `POST /api/links` validate public HTTP(S) destinations, retry real PostgreSQL code collisions, and return 201 or 400 problem responses |
 | T21 | Configured, remote run pending | `.github/workflows/ci.yml` runs `mvn verify` with Temurin Java 25 |
 
 ## Critical path

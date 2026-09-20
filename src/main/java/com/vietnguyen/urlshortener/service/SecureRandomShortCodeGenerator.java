@@ -1,7 +1,9 @@
 package com.vietnguyen.urlshortener.service;
 
 import java.security.SecureRandom;
+import org.springframework.stereotype.Component;
 
+@Component
 final class SecureRandomShortCodeGenerator implements ShortCodeGenerator {
 
   private static final char[] ALPHABET =
