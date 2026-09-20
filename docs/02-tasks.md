@@ -38,6 +38,7 @@ the slack below both moved with it.
 | T7 | Complete | Public short-code resolution returns 302 with `Location` and `Cache-Control: no-store`; unknown codes return 404 |
 | T8 | Complete | Redirects synchronously record click metadata, while repository failures are logged and do not prevent the 302 response |
 | T9 | Complete | `GET /api/links/{code}/stats` aggregates seeded click events into total, UTC per-day, referrer, and user-agent counts |
+| T14 | Complete | `make demo` starts PostgreSQL and the application, waits for health, creates a link, follows the redirect, and prints stats; deterministic shell validation covers the command flow |
 | T11 | Complete | Current controller errors return RFC 7807 `application/problem+json`; unexpected failures use a safe generic detail |
 | T21 | Configured, remote run pending | `.github/workflows/ci.yml` runs `mvn verify` with Temurin Java 25 |
 
