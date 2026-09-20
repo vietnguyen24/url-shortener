@@ -1,3 +1,13 @@
+# Build output
+target/
+
+# IDE
+.idea/
+*.iml
+
+# Assignment brief (marked Schwab Internal - not for redistribution)
+*.pdf
+
 # Compiled class file
 *.class
 
