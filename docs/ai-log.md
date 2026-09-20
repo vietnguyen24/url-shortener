@@ -384,6 +384,23 @@ creation-failure exceptions prevent generic or persistence exceptions from
 being misclassified, and validation details are derived from binding errors.
 The full Maven verification gate passed after these changes.
 
+### AI-016 · 2026-09-20 · Phase B · Redirect implementation
+
+**Task:** Implement T7: resolve a short code and redirect publicly with the
+documented cache policy, returning 404 for unknown codes.
+**Intent given:** Keep redirect behavior in a separate web controller, leave
+click recording for T8, and use the existing repository lookup through
+`LinkService`.
+**Output:** `LinkService.resolve`, `LinkNotFoundException`, and
+`RedirectController` mapped to `GET /{code}`.
+**Disposition:** `adopted` — the implementation follows the documented
+controller/service/persistence layering and keeps resolution side-effect-free.
+**TDD evidence:** RED was observed with the new service and web tests failing
+to compile because the production types and method were absent. GREEN passed
+after adding the minimal resolution and redirect behavior.
+**Validation:** `./mvnw -Dtest=RedirectControllerTest,LinkResolutionTest test`
+and `./mvnw verify` passed.
+
 ## Pending sign-offs
 
 High-impact items requiring explicit engineer review before merge:

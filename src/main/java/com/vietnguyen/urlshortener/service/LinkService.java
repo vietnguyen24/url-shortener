@@ -4,6 +4,7 @@ import com.vietnguyen.urlshortener.persistence.Link;
 import com.vietnguyen.urlshortener.persistence.LinkRepository;
 import com.vietnguyen.urlshortener.persistence.LinkStatus;
 import java.time.Instant;
+import java.util.Objects;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -46,5 +47,12 @@ public class LinkService {
       }
     }
     throw new IllegalStateException("Link creation attempts exhausted");
+  }
+
+  /** Resolves a public short code or reports that it does not exist. */
+  public Link resolve(String shortCode) {
+    return linkRepository
+        .findByShortCode(Objects.requireNonNull(shortCode))
+        .orElseThrow(() -> new LinkNotFoundException(shortCode));
   }
 }
