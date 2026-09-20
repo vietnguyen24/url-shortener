@@ -419,6 +419,30 @@ into the redirect path.
 **Validation:** `./mvnw -Dtest=ClickRecorderTest,RedirectControllerTest,LinkResolutionTest,LinkRepositoryTest test`
 and `./mvnw verify` passed.
 
+### AI-018 · 2026-09-20 · Phase B · RFC 7807 exception handling
+
+**Task:** Implement T11: centralize current controller error handling as RFC
+7807 problem details without exposing stack traces or persistence causes.
+**Intent given:** Preserve existing 400/404 status and title compatibility,
+cover malformed requests and unexpected failures, and avoid changing T10
+authentication or unrelated endpoints.
+**Output:** `GlobalExceptionHandler` returning Spring `ProblemDetail` with
+`application/problem+json`, controller-local handlers removed, and focused
+web tests for validation, malformed JSON, not-found, creation failure, and
+unexpected exceptions.
+**Disposition:** `edited` — the initial controller-local response records were
+replaced by one advice boundary; known exception messages remain useful client
+details, while generic failures use a fixed detail and never serialize causes.
+**TDD evidence:** RED was observed with missing advice behavior: existing
+responses were `application/json` or empty for 404 and malformed JSON. GREEN
+passed after the advice mapped every current error path to typed problem
+details. Refactoring removed duplicate controller handlers without changing
+the existing statuses or titles.
+**Validation:** `./mvnw -Dtest=GlobalExceptionHandlerTest,LinkControllerTest,RedirectControllerTest test`
+passed. An initial full gate was blocked by unrelated parallel T9 formatting;
+after that work was formatted, the final `./mvnw verify` passed with all tests,
+Spotless, Checkstyle, and SpotBugs green.
+
 ## Pending sign-offs
 
 High-impact items requiring explicit engineer review before merge:
