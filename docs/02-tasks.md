@@ -37,6 +37,7 @@ the slack below both moved with it.
 | T6 | Complete | Link creation service and `POST /api/links` validate public HTTP(S) destinations, retry real PostgreSQL code collisions, and return 201 or 400 problem responses |
 | T7 | Complete | Public short-code resolution returns 302 with `Location` and `Cache-Control: no-store`; unknown codes return 404 |
 | T8 | Complete | Redirects synchronously record click metadata, while repository failures are logged and do not prevent the 302 response |
+| T11 | Complete | Current controller errors return RFC 7807 `application/problem+json`; unexpected failures use a safe generic detail |
 | T21 | Configured, remote run pending | `.github/workflows/ci.yml` runs `mvn verify` with Temurin Java 25 |
 
 ## Critical path
@@ -71,7 +72,7 @@ scenarios directly.
 | **T8** | Click recording on the redirect path, **fail-open** | T7 | 1.0 h | Click row written on redirect; an injected write failure still produces a 302 (asserted by test, not by inspection) |
 | **T9** | `GET /api/links/{code}/stats` — total and per-day counts, referrer, user-agent | T8 | 1.0 h | Counts match seeded events |
 | **T10** | `X-API-Key` filter on `/api/**`; redirect and health left public | T6, T9 | 0.75 h | Management endpoints 401 without a key; redirect unaffected |
-| **T11** | RFC 7807 problem details + global exception handling | T6, T7 | 0.75 h | Every error path returns a typed problem body; no stack traces escape |
+| **T11** | RFC 7807 problem details + global exception handling | T6, T7 | 0.75 h | Every current controller error path returns `application/problem+json`; unexpected failures are generic and do not expose stack traces |
 | **T12** | OpenAPI contract via springdoc | T6, T7, T9 | 0.5 h | `/v3/api-docs` complete; spec committed to `docs/openapi.json` |
 | **T13** | Actuator health/readiness, structured JSON logging with correlation id, Micrometer counters | T7 | 1.0 h | Readiness reflects database state; logs carry a correlation id end to end |
 | **T14** | `make demo` — boot Compose, wait for health, create a link, follow the redirect, print stats | T6, T7, T9 | 0.75 h | One command demonstrates the full loop from a clean checkout |
