@@ -460,6 +460,64 @@ CRLF-bearing header value is replaced by a generated id. Re-verified clean.
 `./mvnw -Dtest=CorrelationIdFilterTest,ReadinessHealthIntegrationTest,StructuredLoggingIntegrationTest,LinkControllerTest,RedirectControllerTest test`
 and `./mvnw verify` (32 tests; Spotless, Checkstyle, SpotBugs clean) passed.
 
+### AI-018 · 2026-09-20 · Phase B · RFC 7807 exception handling
+
+**Task:** Implement T11: centralize current controller error handling as RFC
+7807 problem details without exposing stack traces or persistence causes.
+**Intent given:** Preserve existing 400/404 status and title compatibility,
+cover malformed requests and unexpected failures, and avoid changing T10
+authentication or unrelated endpoints.
+**Output:** `GlobalExceptionHandler` returning Spring `ProblemDetail` with
+`application/problem+json`, controller-local handlers removed, and focused
+web tests for validation, malformed JSON, not-found, creation failure, and
+unexpected exceptions.
+**Disposition:** `edited` — the initial controller-local response records were
+replaced by one advice boundary; known exception messages remain useful client
+details, while generic failures use a fixed detail and never serialize causes.
+**TDD evidence:** RED was observed with missing advice behavior: existing
+responses were `application/json` or empty for 404 and malformed JSON. GREEN
+passed after the advice mapped every current error path to typed problem
+details. Refactoring removed duplicate controller handlers without changing
+the existing statuses or titles.
+**Validation:** `./mvnw -Dtest=GlobalExceptionHandlerTest,LinkControllerTest,RedirectControllerTest test`
+passed. An initial full gate was blocked by unrelated parallel T9 formatting;
+after that work was formatted, the final `./mvnw verify` passed with all tests,
+Spotless, Checkstyle, and SpotBugs green.
+
+### AI-019 · 2026-09-20 · Phase B · Link analytics implementation
+
+**Task:** Implement T9: `GET /api/links/{code}/stats` with total clicks,
+UTC per-day counts, referrer counts, and user-agent counts matching persisted
+`ClickEvent` rows.
+**Intent given:** Keep management analytics separate from the public redirect
+controller, preserve the existing 404 behavior for unknown codes, and prove
+aggregation against real PostgreSQL rows rather than only mocked events.
+**Output:** `LinkStats`, `LinkStatsService`, `LinkStatsController`, focused
+unit and MVC tests, and a Testcontainers integration test that seeds three
+click events and verifies all analytics dimensions.
+**Disposition:** `edited` — the initial integration assertion used unordered
+`Map.of` values with an order-sensitive AssertJ assertion; it was corrected to
+assert each expected entry while retaining sorted production output.
+**TDD evidence:** RED was observed when the new tests failed to compile because
+the stats service, response model, and controller were absent. GREEN passed
+after the minimal aggregation and endpoint implementation. Refactoring kept
+aggregation in the service, sorted output deterministically, and excluded
+null referrer/user-agent values from analytics maps.
+**Validation:** `./mvnw -Dtest=LinkStatsServiceTest,LinkStatsControllerTest,LinkStatsIntegrationTest test`
+and `./mvnw verify` passed.
+
+**Review remediation:** The clean-code review reported CR-01 and CR-02.
+Following the current management-endpoint convention, the local empty-body
+404 handler was removed so `GlobalExceptionHandler` owns not-found responses,
+and a web-layer `LinkStatsResponse` now keeps the JSON contract separate from
+the service record. The focused tests and full Maven verification gate passed
+after both changes; the findings were directly coupled to T9's endpoint
+behavior and were accepted for fixing under autopilot.
+Re-verification also identified CR-03 in the slice test: a test-local advice
+could mask the shared problem response. That advice was removed; the test now
+imports the real global handler and asserts the RFC 7807 content type, title,
+and status. The focused test and a final `./mvnw verify` passed afterward.
+
 ## Pending sign-offs
 
 High-impact items requiring explicit engineer review before merge:
