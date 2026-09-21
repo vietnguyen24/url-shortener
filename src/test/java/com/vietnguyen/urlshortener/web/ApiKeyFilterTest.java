@@ -15,6 +15,7 @@ import com.vietnguyen.urlshortener.persistence.Link;
 import com.vietnguyen.urlshortener.persistence.LinkStatus;
 import com.vietnguyen.urlshortener.service.ClickRecorder;
 import com.vietnguyen.urlshortener.service.LinkService;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.ServletException;
 import java.io.IOException;
 import java.time.Instant;
@@ -39,7 +40,8 @@ class ApiKeyFilterTest {
     linkService = org.mockito.Mockito.mock(LinkService.class);
     clickRecorder = org.mockito.Mockito.mock(ClickRecorder.class);
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new LinkController(linkService), redirectController())
+        MockMvcBuilders.standaloneSetup(
+                new LinkController(linkService, new SimpleMeterRegistry()), redirectController())
             .addFilters(new ApiKeyFilter("test-key"))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
@@ -102,6 +104,6 @@ class ApiKeyFilterTest {
   }
 
   private RedirectController redirectController() {
-    return new RedirectController(linkService, clickRecorder);
+    return new RedirectController(linkService, clickRecorder, new SimpleMeterRegistry());
   }
 }

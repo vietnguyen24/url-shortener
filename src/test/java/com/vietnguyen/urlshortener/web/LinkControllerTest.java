@@ -55,6 +55,7 @@ class LinkControllerTest {
 
     mockMvc.perform(
         post("/api/links")
+            .header("X-API-Key", "dev-key-not-a-secret")
             .contentType("application/json")
             .content("{\"destination\":\"https://example.com\"}"));
 
