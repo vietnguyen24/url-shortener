@@ -419,7 +419,48 @@ into the redirect path.
 **Validation:** `./mvnw -Dtest=ClickRecorderTest,RedirectControllerTest,LinkResolutionTest,LinkRepositoryTest test`
 and `./mvnw verify` passed.
 
-### AI-018 · 2026-09-20 · Phase B · RFC 7807 exception handling
+### AI-018 · 2026-09-20 · Phase B · Observability implementation
+
+**Task:** Implement T13: Actuator health/readiness reflecting database state,
+structured JSON logging with a per-request correlation id, and Micrometer
+counters for links created, redirects served, and redirect misses (R5).
+**Intent given:** Keep the scope to the three signals R5 names — no tracing,
+no alerting, no timeout/pool tuning (that is T22) — and prove each behavior
+with a test rather than configuration inspection.
+**Output:**
+- `management.endpoint.health.group.readiness.include=readinessState,db` so
+  `/actuator/health/readiness` reflects live PostgreSQL reachability, proven by
+  stopping the Testcontainers PostgreSQL instance mid-test and observing 503.
+- `logging.structured.format.console=ecs` for structured JSON console logging.
+- `CorrelationIdFilter`, a highest-precedence servlet filter that reuses an
+  incoming `X-Correlation-Id` header when it is safe (bounded, alphanumeric/
+  hyphen only) or generates a UUID otherwise, publishes it to SLF4J's MDC for
+  the request's duration, and echoes it on the response header.
+- `links.created`, `redirects.served`, and `redirects.missed` Micrometer
+  counters incremented in `LinkController` and `RedirectController`
+  respectively.
+**Disposition:** `adopted` — readiness, logging, and metrics are wired at the
+web/controller layer, consistent with the existing controller/service/
+persistence layering; no changes were made to timeouts, pooling, tracing, or
+alerting.
+**TDD evidence:** RED was observed for `CorrelationIdFilterTest` (missing
+type), `ReadinessHealthIntegrationTest#readinessGoesDownWhenDatabaseIsUnreachable`
+(200 instead of 503 before the readiness group included `db`),
+`StructuredLoggingIntegrationTest` (confirmed to fail without the `ecs`
+structured-logging configuration), and the `links.created`/`redirects.served`/
+`redirects.missed` counter tests (`MeterNotFoundException` before the
+counters existed). GREEN passed after each corresponding minimal
+implementation.
+**Security note:** SpotBugs flagged `HRS_REQUEST_PARAMETER_TO_HTTP_HEADER` for
+echoing the incoming correlation-id header verbatim — a header/log injection
+risk. Fixed by validating the incoming id against a bounded
+alphanumeric/hyphen pattern before reuse, with a regression test asserting a
+CRLF-bearing header value is replaced by a generated id. Re-verified clean.
+**Validation:**
+`./mvnw -Dtest=CorrelationIdFilterTest,ReadinessHealthIntegrationTest,StructuredLoggingIntegrationTest,LinkControllerTest,RedirectControllerTest test`
+and `./mvnw verify` (32 tests; Spotless, Checkstyle, SpotBugs clean) passed.
+
+### AI-019 · 2026-09-20 · Phase B · RFC 7807 exception handling
 
 **Task:** Implement T11: centralize current controller error handling as RFC
 7807 problem details without exposing stack traces or persistence causes.
@@ -443,7 +484,7 @@ passed. An initial full gate was blocked by unrelated parallel T9 formatting;
 after that work was formatted, the final `./mvnw verify` passed with all tests,
 Spotless, Checkstyle, and SpotBugs green.
 
-### AI-019 · 2026-09-20 · Phase B · Link analytics implementation
+### AI-020 · 2026-09-20 · Phase B · Link analytics implementation
 
 **Task:** Implement T9: `GET /api/links/{code}/stats` with total clicks,
 UTC per-day counts, referrer counts, and user-agent counts matching persisted
@@ -477,7 +518,80 @@ could mask the shared problem response. That advice was removed; the test now
 imports the real global handler and asserts the RFC 7807 content type, title,
 and status. The focused test and a final `./mvnw verify` passed afterward.
 
-### AI-020 · 2026-09-20 · Phase B · Demo workflow
+### AI-021 · 2026-09-20 · Phase B · OpenAPI contract implementation
+
+**Task:** Implement T12: expose an springdoc-generated OpenAPI contract for
+the current create, redirect, stats, and error endpoint surface, and commit
+the spec to `docs/openapi.json`.
+**Intent given:** Add only the springdoc dependency and per-endpoint
+annotations needed to document the existing behavior accurately (including
+the RFC 7807 error responses from T11), commit a real generated snapshot, and
+avoid pulling in T10 auth or T13 observability work.
+**Output:** `org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1` added to
+`pom.xml` (the first release line compatible with the Spring Boot 4.1.1 /
+Spring Framework 7 parent already in use — verified against the artifact's own
+published POM before adding it); `@ApiResponses` annotations on
+`LinkController`, `RedirectController`, and `LinkStatsController` describing
+their real success and error codes; a minimal `OpenApiConfig` info bean;
+`OpenApiContractTest` asserting both the live `/v3/api-docs` surface and that
+the committed `docs/openapi.json` matches it; and the generated
+`docs/openapi.json` snapshot itself.
+**Disposition:** `edited` — the initial contract test used
+`TestRestTemplate`/`com.fasterxml.jackson.databind`, which do not exist under
+Spring Boot 4.1.1's Jackson 3 / `spring-boot-resttestclient` restructuring;
+switched to `MockMvc` (matching the project's existing test convention) and
+`tools.jackson.databind`.
+**TDD evidence:** RED was observed as a genuine 404 from `/v3/api-docs` before
+springdoc was on the classpath. GREEN passed once the dependency and
+`@ApiResponses` annotations were added and `docs/openapi.json` was generated
+from the live contract. A second RED/GREEN cycle covered the review
+remediation below.
+**Validation:** `./mvnw -Dtest=OpenApiContractTest test` and `./mvnw verify`
+passed (35 tests; Spotless, Checkstyle, SpotBugs green).
+
+**Review remediation:** The independent clean-code review reported CR-01
+(Medium): `GlobalExceptionHandler`'s catch-all handler can return a 500
+`application/problem+json` body from any controller, but only `LinkController`
+documented a 500 response, understating the redirect and stats error surface.
+Accepted for fixing under autopilot as a low-risk accuracy correction directly
+in scope for the task's own "error endpoint surface" requirement. Fix: added a
+documented 500 response to `RedirectController` and `LinkStatsController`,
+extended `OpenApiContractTest` with a RED/GREEN cycle proving the new
+assertions fail without the annotation and pass with it, and regenerated
+`docs/openapi.json`. Re-verification review confirmed CR-01 resolved with no
+new findings; a final `./mvnw verify` passed.
+
+### AI-022 · 2026-09-20 · Phase B · API-key management boundary
+
+**Task:** Implement T10: require `X-API-Key` for `/api/**` while leaving public
+redirects and actuator health unprotected.
+**Intent given:** Add the smallest filter-based boundary, return 401 for
+missing or invalid keys, preserve the existing exception advice scope, and do
+not implement T11 behavior.
+**Output:** `ApiKeyFilter` as a `OncePerRequestFilter`, configured through
+`security.api-key` with the development fallback already documented in the
+README, plus focused endpoint tests for missing, invalid, and valid keys and
+public redirect/health paths.
+**Disposition:** `edited` — constant-time byte comparison was used rather than
+plain string comparison; the existing management endpoint tests were updated
+to supply the configured test key, while redirect and exception handling were
+left otherwise unchanged. Authentication failures now write a small RFC 7807
+problem body at the filter boundary because controller advice cannot intercept
+servlet-filter responses.
+**TDD evidence:** RED was observed with `ApiKeyFilterTest` failing to compile
+because the production filter did not exist. GREEN passed after adding only
+the filter and wiring it as a Spring component. A follow-up test run exposed
+the expected contract change in existing management tests (401 without a key);
+those tests were updated to represent authenticated management calls.
+**Validation:** `./mvnw -Dtest=ApiKeyFilterTest,LinkControllerTest,LinkStatsControllerTest,RedirectControllerTest,GlobalExceptionHandlerTest test`
+passed, followed by `./mvnw verify`.
+
+**Review remediation:** CR-01 added a deterministic RFC 7807 body for filter
+401 responses and a focused content-type/title assertion without changing the
+existing controller advice scope. CR-02 was resolved by placing this entry
+after AI-020 in ascending traceability order.
+
+### AI-023 · 2026-09-20 · Phase B · Demo workflow
 
 **Task:** Implement T14: `make demo` should boot Compose, wait for application
 health, create a link, follow the redirect, and print stats so a reviewer can
