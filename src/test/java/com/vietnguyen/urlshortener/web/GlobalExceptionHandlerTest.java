@@ -11,8 +11,10 @@ import com.vietnguyen.urlshortener.service.InvalidDestinationException;
 import com.vietnguyen.urlshortener.service.LinkCreationFailedException;
 import com.vietnguyen.urlshortener.service.LinkNotFoundException;
 import com.vietnguyen.urlshortener.service.LinkService;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -20,10 +22,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest({LinkController.class, RedirectController.class})
+@AutoConfigureMetrics
 @Import(GlobalExceptionHandler.class)
 class GlobalExceptionHandlerTest {
 
   @Autowired private MockMvc mockMvc;
+
+  @Autowired private MeterRegistry meterRegistry;
 
   @MockitoBean private LinkService linkService;
 
@@ -36,6 +41,7 @@ class GlobalExceptionHandlerTest {
     mockMvc
         .perform(
             post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"destination\":\"javascript:alert(1)\"}"))
         .andExpect(status().isBadRequest())
@@ -50,6 +56,7 @@ class GlobalExceptionHandlerTest {
   @Test
   void unknownCodeReturnsRfc7807Problem() throws Exception {
     when(linkService.resolve("missing")).thenThrow(new LinkNotFoundException("missing"));
+    double before = meterRegistry.get("redirects.missed").counter().count();
 
     mockMvc
         .perform(get("/missing"))
@@ -58,12 +65,20 @@ class GlobalExceptionHandlerTest {
         .andExpect(jsonPath("$.title").value("Link not found"))
         .andExpect(jsonPath("$.status").value(404))
         .andExpect(jsonPath("$.trace").doesNotExist());
+
+    org.assertj.core.api.Assertions.assertThat(
+            meterRegistry.get("redirects.missed").counter().count())
+        .isEqualTo(before + 1.0);
   }
 
   @Test
   void malformedJsonReturnsRfc7807Problem() throws Exception {
     mockMvc
-        .perform(post("/api/links").contentType(MediaType.APPLICATION_JSON).content("{not-json"))
+        .perform(
+            post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{not-json"))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.title").value("Malformed request"))
@@ -79,6 +94,7 @@ class GlobalExceptionHandlerTest {
     mockMvc
         .perform(
             post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"destination\":\"https://example.com\"}"))
         .andExpect(status().isInternalServerError())
@@ -99,6 +115,7 @@ class GlobalExceptionHandlerTest {
     mockMvc
         .perform(
             post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"destination\":\"https://example.com\"}"))
         .andExpect(status().isInternalServerError())
@@ -111,7 +128,7 @@ class GlobalExceptionHandlerTest {
   @Test
   void unsupportedMethodPreserves405ProblemResponse() throws Exception {
     mockMvc
-        .perform(get("/api/links"))
+        .perform(get("/api/links").header("X-API-Key", "dev-key-not-a-secret"))
         .andExpect(status().isMethodNotAllowed())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.status").value(405))
@@ -122,7 +139,10 @@ class GlobalExceptionHandlerTest {
   void unsupportedMediaTypePreserves415ProblemResponse() throws Exception {
     mockMvc
         .perform(
-            post("/api/links").contentType(MediaType.TEXT_PLAIN).content("https://example.com"))
+            post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
+                .contentType(MediaType.TEXT_PLAIN)
+                .content("https://example.com"))
         .andExpect(status().isUnsupportedMediaType())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.status").value(415))

@@ -2,6 +2,8 @@ package com.vietnguyen.urlshortener.web;
 
 import com.vietnguyen.urlshortener.persistence.Link;
 import com.vietnguyen.urlshortener.service.LinkService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,10 +25,12 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class LinkController {
 
   private final LinkService linkService;
+  private final Counter linksCreatedCounter;
 
   /** Creates a controller backed by the link creation service. */
-  public LinkController(LinkService linkService) {
+  public LinkController(LinkService linkService, MeterRegistry meterRegistry) {
     this.linkService = linkService;
+    this.linksCreatedCounter = meterRegistry.counter("links.created");
   }
 
   @PostMapping
@@ -50,6 +54,7 @@ public class LinkController {
   })
   CreateLinkResponse create(@Valid @RequestBody CreateLinkRequest request) {
     Link link = linkService.create(request.destination());
+    linksCreatedCounter.increment();
     String shortUrl =
         ServletUriComponentsBuilder.fromCurrentContextPath()
             .path("/{code}")
