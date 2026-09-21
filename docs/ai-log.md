@@ -460,7 +460,7 @@ CRLF-bearing header value is replaced by a generated id. Re-verified clean.
 `./mvnw -Dtest=CorrelationIdFilterTest,ReadinessHealthIntegrationTest,StructuredLoggingIntegrationTest,LinkControllerTest,RedirectControllerTest test`
 and `./mvnw verify` (32 tests; Spotless, Checkstyle, SpotBugs clean) passed.
 
-### AI-018 · 2026-09-20 · Phase B · RFC 7807 exception handling
+### AI-019 · 2026-09-20 · Phase B · RFC 7807 exception handling
 
 **Task:** Implement T11: centralize current controller error handling as RFC
 7807 problem details without exposing stack traces or persistence causes.
@@ -484,7 +484,7 @@ passed. An initial full gate was blocked by unrelated parallel T9 formatting;
 after that work was formatted, the final `./mvnw verify` passed with all tests,
 Spotless, Checkstyle, and SpotBugs green.
 
-### AI-019 · 2026-09-20 · Phase B · Link analytics implementation
+### AI-020 · 2026-09-20 · Phase B · Link analytics implementation
 
 **Task:** Implement T9: `GET /api/links/{code}/stats` with total clicks,
 UTC per-day counts, referrer counts, and user-agent counts matching persisted
@@ -518,7 +518,50 @@ could mask the shared problem response. That advice was removed; the test now
 imports the real global handler and asserts the RFC 7807 content type, title,
 and status. The focused test and a final `./mvnw verify` passed afterward.
 
-### AI-021 · 2026-09-20 · Phase B · API-key management boundary
+### AI-021 · 2026-09-20 · Phase B · OpenAPI contract implementation
+
+**Task:** Implement T12: expose an springdoc-generated OpenAPI contract for
+the current create, redirect, stats, and error endpoint surface, and commit
+the spec to `docs/openapi.json`.
+**Intent given:** Add only the springdoc dependency and per-endpoint
+annotations needed to document the existing behavior accurately (including
+the RFC 7807 error responses from T11), commit a real generated snapshot, and
+avoid pulling in T10 auth or T13 observability work.
+**Output:** `org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1` added to
+`pom.xml` (the first release line compatible with the Spring Boot 4.1.1 /
+Spring Framework 7 parent already in use — verified against the artifact's own
+published POM before adding it); `@ApiResponses` annotations on
+`LinkController`, `RedirectController`, and `LinkStatsController` describing
+their real success and error codes; a minimal `OpenApiConfig` info bean;
+`OpenApiContractTest` asserting both the live `/v3/api-docs` surface and that
+the committed `docs/openapi.json` matches it; and the generated
+`docs/openapi.json` snapshot itself.
+**Disposition:** `edited` — the initial contract test used
+`TestRestTemplate`/`com.fasterxml.jackson.databind`, which do not exist under
+Spring Boot 4.1.1's Jackson 3 / `spring-boot-resttestclient` restructuring;
+switched to `MockMvc` (matching the project's existing test convention) and
+`tools.jackson.databind`.
+**TDD evidence:** RED was observed as a genuine 404 from `/v3/api-docs` before
+springdoc was on the classpath. GREEN passed once the dependency and
+`@ApiResponses` annotations were added and `docs/openapi.json` was generated
+from the live contract. A second RED/GREEN cycle covered the review
+remediation below.
+**Validation:** `./mvnw -Dtest=OpenApiContractTest test` and `./mvnw verify`
+passed (35 tests; Spotless, Checkstyle, SpotBugs green).
+
+**Review remediation:** The independent clean-code review reported CR-01
+(Medium): `GlobalExceptionHandler`'s catch-all handler can return a 500
+`application/problem+json` body from any controller, but only `LinkController`
+documented a 500 response, understating the redirect and stats error surface.
+Accepted for fixing under autopilot as a low-risk accuracy correction directly
+in scope for the task's own "error endpoint surface" requirement. Fix: added a
+documented 500 response to `RedirectController` and `LinkStatsController`,
+extended `OpenApiContractTest` with a RED/GREEN cycle proving the new
+assertions fail without the annotation and pass with it, and regenerated
+`docs/openapi.json`. Re-verification review confirmed CR-01 resolved with no
+new findings; a final `./mvnw verify` passed.
+
+### AI-022 · 2026-09-20 · Phase B · API-key management boundary
 
 **Task:** Implement T10: require `X-API-Key` for `/api/**` while leaving public
 redirects and actuator health unprotected.

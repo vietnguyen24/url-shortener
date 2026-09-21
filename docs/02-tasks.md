@@ -41,6 +41,7 @@ the slack below both moved with it.
 | T9 | Complete | `GET /api/links/{code}/stats` aggregates seeded click events into total, UTC per-day, referrer, and user-agent counts |
 | T10 | Complete | `X-API-Key` protects `/api/**`; missing and invalid keys return 401 while redirect and health remain public |
 | T11 | Complete | Current controller errors return RFC 7807 `application/problem+json`; unexpected failures use a safe generic detail |
+| T12 | Complete | springdoc-openapi-starter-webmvc-ui 3.1.1 documents `/v3/api-docs` for create, redirect, stats, and their 400/404/500 `application/problem+json` error responses; `docs/openapi.json` is a committed springdoc-generated snapshot verified against the live contract by `OpenApiContractTest` |
 | T21 | Configured, remote run pending | `.github/workflows/ci.yml` runs `mvn verify` with Temurin Java 25 |
 
 ## Critical path
@@ -111,7 +112,7 @@ never silently dropped:
 1. **T18** (performance check) — state "not measured" as a limitation. A missing
    number is honest; a fabricated one is not.
 2. **T13** metrics — keep health/readiness, drop Micrometer counters.
-3. **T12** OpenAPI — the endpoint list in the README carries the contract.
+3. ~~**T12** OpenAPI — the endpoint list in the README carries the contract.~~ Not cut: implemented (see execution status above).
 4. **T17** — reduce to the two highest-value cases: hostile URL rejection and
    analytics fail-open.
 

@@ -1,0 +1,235 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "URL Shortener API",
+    "description" : "Public API for creating short links, resolving redirects, and reading click analytics.",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "paths" : {
+    "/api/links" : {
+      "post" : {
+        "tags" : [ "link-controller" ],
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateLinkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Link created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CreateLinkResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Destination is missing or invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "A unique short code could not be created",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{code}" : {
+      "get" : {
+        "tags" : [ "redirect-controller" ],
+        "operationId" : "redirect",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "302" : {
+            "description" : "Redirects to the link destination"
+          },
+          "404" : {
+            "description" : "Short code is unknown",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An unexpected failure occurred while resolving the link",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/links/{code}/stats" : {
+      "get" : {
+        "tags" : [ "link-stats-controller" ],
+        "operationId" : "stats",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Aggregated click analytics",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LinkStatsResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Short code is unknown",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An unexpected failure occurred while computing analytics",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "CreateLinkRequest" : {
+        "type" : "object",
+        "properties" : {
+          "destination" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "destination" ]
+      },
+      "ProblemDetail" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "instance" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "properties" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          }
+        }
+      },
+      "CreateLinkResponse" : {
+        "type" : "object",
+        "properties" : {
+          "shortCode" : {
+            "type" : "string"
+          },
+          "shortUrl" : {
+            "type" : "string"
+          },
+          "destination" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LinkStatsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "shortCode" : {
+            "type" : "string"
+          },
+          "totalClicks" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "clicksByDay" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "referrers" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "userAgents" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      }
+    }
+  }
+}
