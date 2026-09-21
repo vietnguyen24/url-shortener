@@ -39,7 +39,7 @@ class LinkStatsControllerTest {
                 Map.of("Mozilla", 2L, "Safari", 1L)));
 
     mockMvc
-        .perform(get("/api/links/abc1234/stats"))
+        .perform(get("/api/links/abc1234/stats").header("X-API-Key", "dev-key-not-a-secret"))
         .andExpect(status().isOk())
         .andExpect(
             content()
@@ -56,7 +56,7 @@ class LinkStatsControllerTest {
     when(linkStatsService.stats("missing")).thenThrow(new LinkNotFoundException("missing"));
 
     mockMvc
-        .perform(get("/api/links/missing/stats"))
+        .perform(get("/api/links/missing/stats").header("X-API-Key", "dev-key-not-a-secret"))
         .andExpect(status().isNotFound())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.title").value("Link not found"))

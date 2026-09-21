@@ -518,6 +518,36 @@ could mask the shared problem response. That advice was removed; the test now
 imports the real global handler and asserts the RFC 7807 content type, title,
 and status. The focused test and a final `./mvnw verify` passed afterward.
 
+### AI-021 · 2026-09-20 · Phase B · API-key management boundary
+
+**Task:** Implement T10: require `X-API-Key` for `/api/**` while leaving public
+redirects and actuator health unprotected.
+**Intent given:** Add the smallest filter-based boundary, return 401 for
+missing or invalid keys, preserve the existing exception advice scope, and do
+not implement T11 behavior.
+**Output:** `ApiKeyFilter` as a `OncePerRequestFilter`, configured through
+`security.api-key` with the development fallback already documented in the
+README, plus focused endpoint tests for missing, invalid, and valid keys and
+public redirect/health paths.
+**Disposition:** `edited` — constant-time byte comparison was used rather than
+plain string comparison; the existing management endpoint tests were updated
+to supply the configured test key, while redirect and exception handling were
+left otherwise unchanged. Authentication failures now write a small RFC 7807
+problem body at the filter boundary because controller advice cannot intercept
+servlet-filter responses.
+**TDD evidence:** RED was observed with `ApiKeyFilterTest` failing to compile
+because the production filter did not exist. GREEN passed after adding only
+the filter and wiring it as a Spring component. A follow-up test run exposed
+the expected contract change in existing management tests (401 without a key);
+those tests were updated to represent authenticated management calls.
+**Validation:** `./mvnw -Dtest=ApiKeyFilterTest,LinkControllerTest,LinkStatsControllerTest,RedirectControllerTest,GlobalExceptionHandlerTest test`
+passed, followed by `./mvnw verify`.
+
+**Review remediation:** CR-01 added a deterministic RFC 7807 body for filter
+401 responses and a focused content-type/title assertion without changing the
+existing controller advice scope. CR-02 was resolved by placing this entry
+after AI-020 in ascending traceability order.
+
 ## Pending sign-offs
 
 High-impact items requiring explicit engineer review before merge:

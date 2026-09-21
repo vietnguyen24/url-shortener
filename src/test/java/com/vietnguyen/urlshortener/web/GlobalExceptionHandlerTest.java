@@ -41,6 +41,7 @@ class GlobalExceptionHandlerTest {
     mockMvc
         .perform(
             post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"destination\":\"javascript:alert(1)\"}"))
         .andExpect(status().isBadRequest())
@@ -73,7 +74,11 @@ class GlobalExceptionHandlerTest {
   @Test
   void malformedJsonReturnsRfc7807Problem() throws Exception {
     mockMvc
-        .perform(post("/api/links").contentType(MediaType.APPLICATION_JSON).content("{not-json"))
+        .perform(
+            post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{not-json"))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.title").value("Malformed request"))
@@ -89,6 +94,7 @@ class GlobalExceptionHandlerTest {
     mockMvc
         .perform(
             post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"destination\":\"https://example.com\"}"))
         .andExpect(status().isInternalServerError())
@@ -109,6 +115,7 @@ class GlobalExceptionHandlerTest {
     mockMvc
         .perform(
             post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"destination\":\"https://example.com\"}"))
         .andExpect(status().isInternalServerError())
@@ -121,7 +128,7 @@ class GlobalExceptionHandlerTest {
   @Test
   void unsupportedMethodPreserves405ProblemResponse() throws Exception {
     mockMvc
-        .perform(get("/api/links"))
+        .perform(get("/api/links").header("X-API-Key", "dev-key-not-a-secret"))
         .andExpect(status().isMethodNotAllowed())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.status").value(405))
@@ -132,7 +139,10 @@ class GlobalExceptionHandlerTest {
   void unsupportedMediaTypePreserves415ProblemResponse() throws Exception {
     mockMvc
         .perform(
-            post("/api/links").contentType(MediaType.TEXT_PLAIN).content("https://example.com"))
+            post("/api/links")
+                .header("X-API-Key", "dev-key-not-a-secret")
+                .contentType(MediaType.TEXT_PLAIN)
+                .content("https://example.com"))
         .andExpect(status().isUnsupportedMediaType())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.status").value(415))

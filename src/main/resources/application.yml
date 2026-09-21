@@ -19,6 +19,8 @@ management:
       exposure:
         include: health
 
+security:
+  api-key: ${API_KEY:dev-key-not-a-secret}
 logging:
   structured:
     format:
