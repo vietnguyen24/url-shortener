@@ -37,6 +37,7 @@ the slack below both moved with it.
 | T6 | Complete | Link creation service and `POST /api/links` validate public HTTP(S) destinations, retry real PostgreSQL code collisions, and return 201 or 400 problem responses |
 | T7 | Complete | Public short-code resolution returns 302 with `Location` and `Cache-Control: no-store`; unknown codes return 404 |
 | T8 | Complete | Redirects synchronously record click metadata, while repository failures are logged and do not prevent the 302 response |
+| T13 | Complete | Readiness fails when PostgreSQL is unreachable (proven by stopping the Testcontainers instance); every request is logged as structured JSON carrying a correlation id; `links.created`, `redirects.served`, and `redirects.missed` Micrometer counters are asserted by test |
 | T9 | Complete | `GET /api/links/{code}/stats` aggregates seeded click events into total, UTC per-day, referrer, and user-agent counts |
 | T11 | Complete | Current controller errors return RFC 7807 `application/problem+json`; unexpected failures use a safe generic detail |
 | T21 | Configured, remote run pending | `.github/workflows/ci.yml` runs `mvn verify` with Temurin Java 25 |

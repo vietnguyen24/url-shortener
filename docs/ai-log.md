@@ -419,6 +419,47 @@ into the redirect path.
 **Validation:** `./mvnw -Dtest=ClickRecorderTest,RedirectControllerTest,LinkResolutionTest,LinkRepositoryTest test`
 and `./mvnw verify` passed.
 
+### AI-018 · 2026-09-20 · Phase B · Observability implementation
+
+**Task:** Implement T13: Actuator health/readiness reflecting database state,
+structured JSON logging with a per-request correlation id, and Micrometer
+counters for links created, redirects served, and redirect misses (R5).
+**Intent given:** Keep the scope to the three signals R5 names — no tracing,
+no alerting, no timeout/pool tuning (that is T22) — and prove each behavior
+with a test rather than configuration inspection.
+**Output:**
+- `management.endpoint.health.group.readiness.include=readinessState,db` so
+  `/actuator/health/readiness` reflects live PostgreSQL reachability, proven by
+  stopping the Testcontainers PostgreSQL instance mid-test and observing 503.
+- `logging.structured.format.console=ecs` for structured JSON console logging.
+- `CorrelationIdFilter`, a highest-precedence servlet filter that reuses an
+  incoming `X-Correlation-Id` header when it is safe (bounded, alphanumeric/
+  hyphen only) or generates a UUID otherwise, publishes it to SLF4J's MDC for
+  the request's duration, and echoes it on the response header.
+- `links.created`, `redirects.served`, and `redirects.missed` Micrometer
+  counters incremented in `LinkController` and `RedirectController`
+  respectively.
+**Disposition:** `adopted` — readiness, logging, and metrics are wired at the
+web/controller layer, consistent with the existing controller/service/
+persistence layering; no changes were made to timeouts, pooling, tracing, or
+alerting.
+**TDD evidence:** RED was observed for `CorrelationIdFilterTest` (missing
+type), `ReadinessHealthIntegrationTest#readinessGoesDownWhenDatabaseIsUnreachable`
+(200 instead of 503 before the readiness group included `db`),
+`StructuredLoggingIntegrationTest` (confirmed to fail without the `ecs`
+structured-logging configuration), and the `links.created`/`redirects.served`/
+`redirects.missed` counter tests (`MeterNotFoundException` before the
+counters existed). GREEN passed after each corresponding minimal
+implementation.
+**Security note:** SpotBugs flagged `HRS_REQUEST_PARAMETER_TO_HTTP_HEADER` for
+echoing the incoming correlation-id header verbatim — a header/log injection
+risk. Fixed by validating the incoming id against a bounded
+alphanumeric/hyphen pattern before reuse, with a regression test asserting a
+CRLF-bearing header value is replaced by a generated id. Re-verified clean.
+**Validation:**
+`./mvnw -Dtest=CorrelationIdFilterTest,ReadinessHealthIntegrationTest,StructuredLoggingIntegrationTest,LinkControllerTest,RedirectControllerTest test`
+and `./mvnw verify` (32 tests; Spotless, Checkstyle, SpotBugs clean) passed.
+
 ### AI-018 · 2026-09-20 · Phase B · RFC 7807 exception handling
 
 **Task:** Implement T11: centralize current controller error handling as RFC

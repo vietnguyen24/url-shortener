@@ -11,8 +11,10 @@ import com.vietnguyen.urlshortener.service.InvalidDestinationException;
 import com.vietnguyen.urlshortener.service.LinkCreationFailedException;
 import com.vietnguyen.urlshortener.service.LinkNotFoundException;
 import com.vietnguyen.urlshortener.service.LinkService;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -20,10 +22,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest({LinkController.class, RedirectController.class})
+@AutoConfigureMetrics
 @Import(GlobalExceptionHandler.class)
 class GlobalExceptionHandlerTest {
 
   @Autowired private MockMvc mockMvc;
+
+  @Autowired private MeterRegistry meterRegistry;
 
   @MockitoBean private LinkService linkService;
 
@@ -50,6 +55,7 @@ class GlobalExceptionHandlerTest {
   @Test
   void unknownCodeReturnsRfc7807Problem() throws Exception {
     when(linkService.resolve("missing")).thenThrow(new LinkNotFoundException("missing"));
+    double before = meterRegistry.get("redirects.missed").counter().count();
 
     mockMvc
         .perform(get("/missing"))
@@ -58,6 +64,10 @@ class GlobalExceptionHandlerTest {
         .andExpect(jsonPath("$.title").value("Link not found"))
         .andExpect(jsonPath("$.status").value(404))
         .andExpect(jsonPath("$.trace").doesNotExist());
+
+    org.assertj.core.api.Assertions.assertThat(
+            meterRegistry.get("redirects.missed").counter().count())
+        .isEqualTo(before + 1.0);
   }
 
   @Test
