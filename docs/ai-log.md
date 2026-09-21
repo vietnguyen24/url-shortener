@@ -591,6 +591,38 @@ passed, followed by `./mvnw verify`.
 existing controller advice scope. CR-02 was resolved by placing this entry
 after AI-020 in ascending traceability order.
 
+### AI-023 · 2026-09-20 · Phase B · Demo workflow
+
+**Task:** Implement T14: `make demo` should boot Compose, wait for application
+health, create a link, follow the redirect, and print stats so a reviewer can
+exercise the full loop from a clean checkout.
+**Intent given:** Recover T14 safely in an isolated worktree, base only a new
+`task-14-final` branch on `origin/task-9`, and provide deterministic
+shell-level validation in addition to the normal Maven quality gate.
+**Output:** `Makefile` targets for `demo` and `test-demo`, a Bash demo script
+that starts PostgreSQL with Docker Compose, launches the application through the
+Maven wrapper, polls `/actuator/health`, creates a link, follows the generated
+short URL, and prints `/api/links/{code}/stats`; plus a stubbed shell test that
+validates the command flow and user-visible output without Docker or network
+dependencies.
+**Disposition:** `edited` — the demo sends the development API-key header even
+though `origin/task-9` does not require it, keeping the command compatible with
+the protected management endpoints expected after T10 merges. JSON extraction is
+kept local to the script instead of adding a `jq` dependency.
+**TDD evidence:** RED was observed with `./scripts/test-demo.sh` failing because
+`make demo` had no target. GREEN passed after adding the Makefile target,
+`scripts/demo.sh`, and deterministic stubbed command validation.
+**Validation:** `./scripts/test-demo.sh`, `make test-demo`, real `make demo`,
+and `./mvnw verify` passed.
+
+**Review remediation:** The clean-code review reported CR-01 through CR-03.
+Under the explicit T14 recovery instruction to resolve/reverify findings, all
+three were fixed: application cleanup now terminates the Maven job's process
+group, the deterministic shell test covers a non-200 redirect failure path and
+asserts app-process cleanup, and the demo script documents the intentional
+flat-JSON parsing assumption. `./scripts/test-demo.sh`, `make test-demo`,
+`./mvnw verify`, and real `make demo` passed after remediation.
+
 ## Pending sign-offs
 
 High-impact items requiring explicit engineer review before merge:

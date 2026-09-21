@@ -40,6 +40,7 @@ the slack below both moved with it.
 | T13 | Complete | Readiness fails when PostgreSQL is unreachable (proven by stopping the Testcontainers instance); every request is logged as structured JSON carrying a correlation id; `links.created`, `redirects.served`, and `redirects.missed` Micrometer counters are asserted by test |
 | T9 | Complete | `GET /api/links/{code}/stats` aggregates seeded click events into total, UTC per-day, referrer, and user-agent counts |
 | T10 | Complete | `X-API-Key` protects `/api/**`; missing and invalid keys return 401 while redirect and health remain public |
+| T14 | Complete | `make demo` starts PostgreSQL and the application, waits for health, creates a link, follows the redirect, and prints stats; deterministic shell validation covers the command flow |
 | T11 | Complete | Current controller errors return RFC 7807 `application/problem+json`; unexpected failures use a safe generic detail |
 | T12 | Complete | springdoc-openapi-starter-webmvc-ui 3.1.1 documents `/v3/api-docs` for create, redirect, stats, and their 400/404/500 `application/problem+json` error responses; `docs/openapi.json` is a committed springdoc-generated snapshot verified against the live contract by `OpenApiContractTest` |
 | T21 | Configured, remote run pending | `.github/workflows/ci.yml` runs `mvn verify` with Temurin Java 25 |
